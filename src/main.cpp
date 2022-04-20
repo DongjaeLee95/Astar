@@ -90,7 +90,7 @@ void StartPointCallback(const geometry_msgs::PoseWithCovarianceStamped& msg)
 {
     Point2d src_point = Point2d(msg.pose.pose.position.x, msg.pose.pose.position.y);
     OccGridParam.Map2ImageTransform(src_point, startPoint);
-
+    ROS_WARN_STREAM("startPoint: " << startPoint.x << ", " << startPoint.y);
     // Set flag
     startpoint_flag = true;
     if(map_flag && startpoint_flag && targetpoint_flag)

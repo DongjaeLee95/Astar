@@ -44,7 +44,7 @@ struct cmp
 
 struct Obs
 { // can contain single obstacle info
-    Eigen::Vector3d CoG;
+    Eigen::Vector3d CoG; // value in absolute map (not in grid map)
     double yaw;
     double abs_width; // 가로
     double abs_depth; // 세로
@@ -65,7 +65,9 @@ class Astar{
 
 public:
     // Interface function
-    void InitAstar(Obs& _obs, int _map_abs_height, int _map_abs_width, double _map_grid_length, AstarConfig _config = AstarConfig());
+    void InitAstar(Obs& _obs, double _map_abs_height, double _map_abs_width, double _map_grid_length, AstarConfig _config = AstarConfig());
+    void AbsPos2IdxPos(Point2d _AbsPos, Point& _IdxPos);
+    void IdxPos2AbsPos(Point _IdxPos, Point2d& _AbsPos);
     void PathPlanning(Point _startPoint, Point _targetPoint, vector<Point>& path);
 
     inline int point2index(Point point) {
@@ -76,14 +78,15 @@ public:
     }
 
 private:
-    void ObsProcess(Obs& _obs, double map_grid_length);
+    void ObsProcess(Obs& _obs);
     Node* FindPath();
     void GetPath(Node* TailNode, vector<Point>& path);
 
     int sat(int val, int min, int max);
-    Eigen::Vector2i rotate(int x, int y, Eigen::Vector2i CoGIdx, double yaw);
+    Point rotate(int x, int y, Point CoGIdx, double yaw);
 
 private:
+    bool inflate_flag = false;
     //Object
     double map_origin_abs_x;
     double map_origin_abs_y;

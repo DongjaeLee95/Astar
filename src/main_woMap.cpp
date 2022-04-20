@@ -37,6 +37,7 @@ pathplanning::AstarConfig config;
 pathplanning::Astar astar;
 OccupancyGridParam OccGridParam;
 Point startPoint, targetPoint;
+Point2d startPointD, targetPointD;
 
 // Parameter
 bool obstacle_flag;
@@ -85,12 +86,13 @@ void ObstacleCallback(const geometry_msgs::PoseStamped& msg)
     Eigen::Matrix<double,3,1> rpy = R2rpy(R);
     
     obs_yaw = rpy(2);
+    obstacle_flag = true;
 }
 
 void StartPointCallback(const nav_msgs::Odometry& msg)
 {
-    Point2d src_point = Point2d(msg.pose.pose.position.x, msg.pose.pose.position.y);
-    OccGridParam.Map2ImageTransform(src_point, startPoint);
+    startPointD = Point2d(msg.pose.pose.position.x, msg.pose.pose.position.y);
+    // ROS_WARN_STREAM_ONCE("startPointD: " << startPointD.x << ", " << startPointD.y);
 
     // Set flag
     startpoint_flag = true;
@@ -102,8 +104,8 @@ void StartPointCallback(const nav_msgs::Odometry& msg)
 
 void TargetPointtCallback(const geometry_msgs::PoseStamped& msg)
 {
-    Point2d src_point = Point2d(msg.pose.position.x, msg.pose.position.y);
-    OccGridParam.Map2ImageTransform(src_point, targetPoint);
+    targetPointD = Point2d(msg.pose.position.x, msg.pose.position.y);
+    // ROS_WARN_STREAM("targetPointD: " << targetPointD.x << ", " << targetPointD.y);
 
     // Set flag
     targetpoint_flag = true;
@@ -140,6 +142,10 @@ int main(int argc, char * argv[])
     nh_priv.param<double>("obs_abs_depth", obs_abs_depth, 0.5);
     nh_priv.param<double>("map_grid_length", map_grid_length, 0.05);
 
+    // obstacle setting
+    obs.abs_depth = obs_abs_depth;
+    obs.abs_width = obs_abs_width;
+
     // Subscribe topics
     obs_sub = nh.subscribe("/structure", 10, ObstacleCallback);
     startPoint_sub = nh.subscribe("/mavros/local_position/odom", 10, StartPointCallback);
@@ -148,17 +154,21 @@ int main(int argc, char * argv[])
     // Advertise topics
     path_pub = nh.advertise<nav_msgs::Path>("nav_path", 10);
 
-    // Initialize Astar algorithm
-    obs.CoG = obs_CoG;
-    obs.yaw = obs_yaw;
-
     // Loop and wait for callback
     ros::Rate loop_rate(rate);
     while(ros::ok())
     {
         if(start_flag)
         {
+            obs.CoG = obs_CoG;
+            obs.yaw = obs_yaw;
+
             astar.InitAstar(obs, map_abs_height, map_abs_width, map_grid_length, config);
+
+            astar.AbsPos2IdxPos(startPointD,startPoint);
+            astar.AbsPos2IdxPos(targetPointD,targetPoint);
+            // ROS_WARN_STREAM("startPoint: "<< startPoint.x << ", " << startPoint.y);
+            // ROS_WARN_STREAM("targetPoint: "<< targetPoint.x << ", " << targetPoint.y);
 
             double start_time = ros::Time::now().toSec();
             // Start planning path
@@ -172,7 +182,9 @@ int main(int argc, char * argv[])
                 for(int i=0;i<PathList.size();i++)
                 {
                     Point2d dst_point;
-                    OccGridParam.Image2MapTransform(PathList[i], dst_point);
+                        // PathList: IdxPos로 되어 있음. 다시 AbsPos로 바꿔줘야 함
+                    astar.IdxPos2AbsPos(PathList[i], dst_point);                        
+                    // TODO - obstacle 사이즈가 매번 할 때마다 0.05씩 커지는데.. 이거 해결해야함!
 
                     geometry_msgs::PoseStamped pose_stamped;
                     pose_stamped.header.stamp = ros::Time::now();

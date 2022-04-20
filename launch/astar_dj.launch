@@ -1,7 +1,7 @@
 <?xml version="1.0"?>
 <launch>
-    <arg name="obs_abs_width" value="1.0"/>
-    <arg name="obs_abs_depth" value="0.5"/>
+    <arg name="obs_abs_width" value="0.5"/>
+    <arg name="obs_abs_depth" value="0.8"/>
 
     <!-- astar node -->
     <node pkg="astar" type="astar_dj" name="astar_dj" output="screen">
@@ -24,7 +24,7 @@
 
     <!-- publisher test for simulation -->
     <node pkg="astar" type="publish_simul" name="publish_simul" output="screen">
-        <param name="yaw_angle"         value="0.0"/>
+        <param name="yaw_angle"         value="30.0"/>
     </node>
 
     <!-- rviz -->

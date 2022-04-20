@@ -7,7 +7,7 @@
 namespace pathplanning{
 
 
-void Astar::InitAstar(Obs& _obs, int _map_abs_height, int _map_abs_width, double _map_grid_length, AstarConfig _config)
+void Astar::InitAstar(Obs& _obs, double _map_abs_height, double _map_abs_width, double _map_grid_length, AstarConfig _config)
 {
     char neighbor8[8][2] = {
             {-1, -1}, {-1, 0}, {-1, 1},
@@ -17,18 +17,31 @@ void Astar::InitAstar(Obs& _obs, int _map_abs_height, int _map_abs_width, double
 
     config = _config;
     neighbor = Mat(8, 2, CV_8S, neighbor8).clone();
+    map_grid_length = _map_grid_length;
 
     map_heightIdx = floor(_map_abs_height/_map_grid_length);
     map_widthIdx = floor(_map_abs_width/_map_grid_length);
+
+    // std::cout << "map_heightIdx: " << map_heightIdx << std::endl;
+    // std::cout << "map_widthIdx: " << map_widthIdx << std::endl;
 
     // Assumption: map origin is located at the center of the map
     map_origin_abs_x = _map_abs_width/2.0;
     map_origin_abs_y = _map_abs_height/2.0;
 
-    _obs.CoG(0) += map_origin_abs_x;
-    _obs.CoG(1) += map_origin_abs_y;
+    ObsProcess(_obs);
+}
 
-    ObsProcess(_obs, _map_grid_length);
+void Astar::AbsPos2IdxPos(Point2d _AbsPos, Point& _IdxPos)
+{
+    _IdxPos.x = sat(round((_AbsPos.x + map_origin_abs_x)/map_grid_length),0,map_widthIdx);
+    _IdxPos.y = sat(round((_AbsPos.y + map_origin_abs_y)/map_grid_length),0,map_heightIdx);
+}
+
+void Astar::IdxPos2AbsPos(Point _IdxPos, Point2d& _AbsPos)
+{
+    _AbsPos.x = ((double)_IdxPos.x)*map_grid_length - map_origin_abs_x;
+    _AbsPos.y = ((double)_IdxPos.y)*map_grid_length - map_origin_abs_y;
 }
 
 void Astar::PathPlanning(Point _startPoint, Point _targetPoint, vector<Point>& path)
@@ -42,37 +55,46 @@ void Astar::PathPlanning(Point _startPoint, Point _targetPoint, vector<Point>& p
     GetPath(TailNode, path);
 }
 
-void Astar::ObsProcess(Obs& _obs, double map_grid_length)
+void Astar::ObsProcess( Obs& _obs )
 {
-    // Initial LabelMap
-    LabelMap = Mat::zeros(map_heightIdx, map_widthIdx, CV_8UC1);
-
-    // TODO - origin 위치 고려해야하지 않나
-    // obstacle occupancy in grid map
-    Eigen::Vector2i obs_start_xyIdx;  // before rotation
-    Eigen::Vector2i obs_end_xyIdx;    // before rotation
-    Eigen::Vector2i obs_outercircle_start_xyIdx;
-    Eigen::Vector2i obs_outercircle_end_xyIdx;
+    Point obs_start_xyIdx; // before rotation
+    Point obs_end_xyIdx;   // before rotation
+    Point obs_outercircle_start_xyIdx;
+    Point obs_outercircle_end_xyIdx;
     double obs_radius;
 
-    // rotation 고려해야지!
-    if(config.InflateLength > 0)
+    if(config.InflateLength > 0 && inflate_flag == false)
     {
         _obs.abs_width = _obs.abs_width + config.InflateLength;
         _obs.abs_depth = _obs.abs_depth + config.InflateLength;
+        inflate_flag = true;
     }
 
     obs_radius = sqrt((_obs.abs_width/2.0)*(_obs.abs_width/2.0) + (_obs.abs_depth/2.0)*(_obs.abs_depth/2.0));
 
-    obs_start_xyIdx(0) = sat(floor((_obs.CoG(0) - _obs.abs_width/2.0)/map_grid_length),0,map_widthIdx);
-    obs_start_xyIdx(1) = sat(floor((_obs.CoG(1) - _obs.abs_depth/2.0)/map_grid_length),0,map_heightIdx);
-    obs_end_xyIdx(0) = sat(floor((_obs.CoG(0) + _obs.abs_width/2.0)/map_grid_length),0,map_widthIdx);
-    obs_end_xyIdx(1) = sat(floor((_obs.CoG(1) + _obs.abs_depth/2.0)/map_grid_length),0,map_heightIdx);
-        
-    obs_outercircle_start_xyIdx(0) = sat(floor((_obs.CoG(0) - obs_radius)/map_grid_length),0,map_widthIdx);
-    obs_outercircle_start_xyIdx(1) = sat(floor((_obs.CoG(1) - obs_radius)/map_grid_length),0,map_heightIdx);
-    obs_outercircle_end_xyIdx(0) = sat(floor((_obs.CoG(0) + obs_radius)/map_grid_length),0,map_widthIdx);
-    obs_outercircle_end_xyIdx(1) = sat(floor((_obs.CoG(1) + obs_radius)/map_grid_length),0,map_heightIdx);
+    Point2d obs_start_AbsPos, obs_end_AbsPos, obs_outercircle_start_AbsPos, obs_outercircle_end_AbsPos;
+    obs_start_AbsPos.x = _obs.CoG(0) - _obs.abs_width/2.0;
+    obs_start_AbsPos.y = _obs.CoG(1) - _obs.abs_depth/2.0;
+    obs_end_AbsPos.x = _obs.CoG(0) + _obs.abs_width/2.0;
+    obs_end_AbsPos.y = _obs.CoG(1) + _obs.abs_depth/2.0;
+    // for smaller search size
+    obs_outercircle_start_AbsPos.x = _obs.CoG(0) - obs_radius;
+    obs_outercircle_start_AbsPos.y = _obs.CoG(1) - obs_radius;
+    obs_outercircle_end_AbsPos.x = _obs.CoG(0) + obs_radius;
+    obs_outercircle_end_AbsPos.y = _obs.CoG(1) + obs_radius;
+
+    AbsPos2IdxPos(obs_start_AbsPos,obs_start_xyIdx);
+    AbsPos2IdxPos(obs_end_AbsPos,obs_end_xyIdx);
+    AbsPos2IdxPos(obs_outercircle_start_AbsPos,obs_outercircle_start_xyIdx);
+    AbsPos2IdxPos(obs_outercircle_end_AbsPos,obs_outercircle_end_xyIdx);
+
+    // std::cout << "obs_start_AbsPos: " << obs_start_AbsPos.x << ", " << obs_start_AbsPos.y << std::endl;
+    // std::cout << "obs_end_AbsPos: " << obs_end_AbsPos.x << ", " << obs_end_AbsPos.y << std::endl;
+    // std::cout << "obs_start_xyIdx: " << obs_start_xyIdx.x << ", " << obs_start_xyIdx.y << std::endl;
+    // std::cout << "obs_end_xyIdx: " << obs_end_xyIdx.x << ", " << obs_end_xyIdx.y << std::endl;
+
+    // Initial LabelMap
+    LabelMap = Mat::zeros(map_heightIdx, map_widthIdx, CV_8UC1);
 
     // label map initialize
     for(int y=0;y<map_heightIdx;y++)
@@ -83,24 +105,39 @@ void Astar::ObsProcess(Obs& _obs, double map_grid_length)
         }
     }
     
-    // obstacle labeling - circle 그리고 그 안에 있는거만 따지자
-    
-    Eigen::Vector2i CoGIdx;
-    CoGIdx(0) = sat(floor((_obs.CoG(0))/map_grid_length),0,map_widthIdx);
-    CoGIdx(1) = sat(floor((_obs.CoG(1))/map_grid_length),0,map_heightIdx);
+    Point2d _AbsCoG_xy;
+    Point CoGIdx;
+    _AbsCoG_xy.x = _obs.CoG(0);
+    _AbsCoG_xy.y = _obs.CoG(1);
 
-    for(int x=obs_outercircle_start_xyIdx(0);x<obs_outercircle_end_xyIdx(0);x++)
+    AbsPos2IdxPos(_AbsCoG_xy,CoGIdx);
+
+    for(int x=obs_outercircle_start_xyIdx.x;x<obs_outercircle_end_xyIdx.x;x++)
     {
-        for(int y=obs_outercircle_start_xyIdx(1);y<obs_outercircle_end_xyIdx(1);y++)
+        for(int y=obs_outercircle_start_xyIdx.y;y<obs_outercircle_end_xyIdx.y;y++)
         {
             // check if obstacle by reverting rotation
-            Eigen::Vector2i rotated_idx;
+            Point rotated_idx;
             rotated_idx = rotate(x,y,CoGIdx,-_obs.yaw);
-            if(obs_start_xyIdx(0) < rotated_idx(0) && rotated_idx(0) < obs_end_xyIdx(0) &&
-                obs_start_xyIdx(1) < rotated_idx(1) && rotated_idx(1) < obs_end_xyIdx(1))
+            if(obs_start_xyIdx.x < rotated_idx.x && rotated_idx.x < obs_end_xyIdx.x &&
+                obs_start_xyIdx.y < rotated_idx.y && rotated_idx.y < obs_end_xyIdx.y)
                 LabelMap.at<uchar>(y, x) = obstacle;
         }
     }
+
+    // visualize LabelMap - for debugging
+    // for(int x=(map_widthIdx-1);x>=0;x--)
+    // {
+    //     for(int y=(map_heightIdx-1);y>=0;y--)
+    //     {
+    //         if( LabelMap.at<uchar>(y,x) == free )
+    //             std::cout << "0 ";
+    //         if( LabelMap.at<uchar>(y,x) == obstacle )
+    //             std::cout << "1 ";
+    //     }
+    //     std::cout << std::endl;
+    // }
+    
 }
 
 Node* Astar::FindPath()
@@ -249,18 +286,20 @@ int Astar::sat(int val, int min, int max)
     return return_;    
 }
 
-Eigen::Vector2i Astar::rotate(int x, int y, Eigen::Vector2i CoGIdx, double yaw)
+Point Astar::rotate(int x, int y, Point CoGIdx, double yaw)
 {
-    Eigen::Vector2i xy;
+    Eigen::Vector2i xy, CoGIdx_eigen;
     xy(0) = x; xy(1) = y;
-    Eigen::Vector2i rotated_xy;
+    CoGIdx_eigen(0) = CoGIdx.x; CoGIdx_eigen(1) = CoGIdx.y;
+    
     Eigen::Matrix2d Rot_mat;
     Rot_mat(0,0) = cos(yaw); Rot_mat(0,1) = -sin(yaw);
     Rot_mat(1,0) = sin(yaw); Rot_mat(1,1) = cos(yaw);
-    Eigen::Vector2d temp_ = Rot_mat*(xy-CoGIdx).cast<double>();
+    Eigen::Vector2d temp_ = Rot_mat*(xy-CoGIdx_eigen).cast<double>();
 
-    rotated_xy(0) = CoGIdx(0) + floor(temp_(0));
-    rotated_xy(1) = CoGIdx(1) + floor(temp_(1));
+    Point rotated_xy;
+    rotated_xy.x = CoGIdx.x + round(temp_(0));
+    rotated_xy.y = CoGIdx.y + round(temp_(1));
 
     return rotated_xy;
 }
