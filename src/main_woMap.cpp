@@ -15,12 +15,6 @@
 using namespace cv;
 using namespace std;
 
-// TODO
-    // obstacle definition 여기에서 해야 함
-    // gazebo 상에서 테스트 해볼 수 있으면 좋을텐데.. gazebo에서 사물 부를 수 있으면 좋겠다
-    // turtlebot3 사용해서 테스트 해볼 것 
-
-
 //-------------------------------- Global variables ---------------------------------//
 // Subscriber
 ros::Subscriber obs_sub;
@@ -147,7 +141,7 @@ int main(int argc, char * argv[])
     obs.abs_width = obs_abs_width;
 
     // Subscribe topics
-    obs_sub = nh.subscribe("/structure", 10, ObstacleCallback);
+    obs_sub = nh.subscribe("/dj_struct", 10, ObstacleCallback);
     startPoint_sub = nh.subscribe("/mavros/local_position/odom", 10, StartPointCallback);
     targetPoint_sub = nh.subscribe("move_base_simple/goal", 10, TargetPointtCallback);
 
@@ -182,9 +176,7 @@ int main(int argc, char * argv[])
                 for(int i=0;i<PathList.size();i++)
                 {
                     Point2d dst_point;
-                        // PathList: IdxPos로 되어 있음. 다시 AbsPos로 바꿔줘야 함
                     astar.IdxPos2AbsPos(PathList[i], dst_point);                        
-                    // TODO - obstacle 사이즈가 매번 할 때마다 0.05씩 커지는데.. 이거 해결해야함!
 
                     geometry_msgs::PoseStamped pose_stamped;
                     pose_stamped.header.stamp = ros::Time::now();

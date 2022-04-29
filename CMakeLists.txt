@@ -7,7 +7,8 @@ find_package(OpenCV REQUIRED)
 find_package(Eigen3 REQUIRED)
 
 set(Eigen3_INCLUDE_DIRS ${EIGEN3_INCLUDE_DIR})
-set(CMAKE_BUILD_TYPE "Debug")
+# set(CMAKE_BUILD_TYPE "Debug")
+set(CMAKE_BUILD_TYPE "Release")
 
 find_package(catkin REQUIRED COMPONENTS
         roscpp

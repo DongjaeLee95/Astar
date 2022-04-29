@@ -15,7 +15,7 @@ int main( int argc, char** argv)
 
     ros::Rate rate(10);
     ros::Publisher odom_pub = nh.advertise<nav_msgs::Odometry>("/mavros/local_position/odom",1);
-    ros::Publisher obs_pub = nh.advertise<geometry_msgs::PoseStamped>("/structure",1);
+    ros::Publisher obs_pub = nh.advertise<geometry_msgs::PoseStamped>("/dj_struct",1);
 
     nh_priv.param<double>("yaw_angle",psi,0.0); // [deg]
     psi = psi*PI/180.0;
